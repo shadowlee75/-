@@ -1,4 +1,5 @@
 const CATEGORIES = ["잡화", "뷰티", "신발", "식품"];
+const CATEGORY_IDS = { 잡화: 1, 뷰티: 2, 신발: 3, 식품: 4 };
 
 export const PRODUCTS = [
   { id: 1, name: "미니멀 토트백", price: 89000, category: "잡화", description: "각을 살린 검정 가죽 토트백", image_url: "/products/bag.jpg" },
@@ -12,12 +13,17 @@ export const PRODUCTS = [
 ];
 
 const SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE
+  )`,
   `CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     price INTEGER NOT NULL CHECK (price >= 0),
     description TEXT NOT NULL,
     category TEXT NOT NULL CHECK (category IN ('잡화', '뷰티', '신발', '식품')),
+    category_id INTEGER NOT NULL REFERENCES categories(id),
     image_url TEXT NOT NULL UNIQUE
   )`,
   `CREATE TABLE IF NOT EXISTS guest_sessions (
@@ -45,7 +51,6 @@ const SCHEMA_STATEMENTS = [
     qty INTEGER NOT NULL CHECK (qty BETWEEN 1 AND 99),
     price INTEGER NOT NULL CHECK (price >= 0)
   )`,
-  `CREATE INDEX IF NOT EXISTS idx_cart_items_guest_id ON cart_items(guest_id)`,
   `CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)`,
   `CREATE INDEX IF NOT EXISTS idx_orders_guest_id ON orders(guest_id)`
 ];
@@ -68,14 +73,33 @@ async function ensureSchema(db) {
   if (initializedDb === db && initialization) return initialization;
   initializedDb = db;
   initialization = (async () => {
-    const statements = SCHEMA_STATEMENTS.map((sql) => db.prepare(sql));
-    for (const product of PRODUCTS) {
-      statements.push(db.prepare(
-        `INSERT OR IGNORE INTO products (id, name, price, description, category, image_url)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      ).bind(product.id, product.name, product.price, product.description, product.category, product.image_url));
+    await db.batch(SCHEMA_STATEMENTS.map((sql) => db.prepare(sql)));
+    await db.batch(CATEGORIES.map((name, index) => db.prepare(
+      `INSERT OR IGNORE INTO categories (id, name) VALUES (?, ?)`
+    ).bind(index + 1, name)));
+    const columns = await db.prepare("PRAGMA table_info(products)").all();
+    const hasCategoryId = columns.results.some((column) => column.name === "category_id");
+    const hasLegacyCategory = columns.results.some((column) => column.name === "category");
+    if (!hasCategoryId) {
+      await db.prepare("ALTER TABLE products ADD COLUMN category_id INTEGER REFERENCES categories(id)").run();
     }
-    await db.batch(statements);
+    if (hasLegacyCategory) {
+      await db.prepare(
+        "UPDATE products SET category_id = (SELECT id FROM categories WHERE categories.name = products.category) WHERE category_id IS NULL"
+      ).run();
+    }
+    await db.prepare("CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id)").run();
+    await db.prepare("DROP INDEX IF EXISTS idx_cart_items_guest_id").run();
+    const productStatements = PRODUCTS.map((product) => hasLegacyCategory
+      ? db.prepare(
+        `INSERT OR IGNORE INTO products (id, name, price, description, category, category_id, image_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(product.id, product.name, product.price, product.description, product.category, CATEGORY_IDS[product.category], product.image_url)
+      : db.prepare(
+        `INSERT OR IGNORE INTO products (id, name, price, description, category_id, image_url)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(product.id, product.name, product.price, product.description, CATEGORY_IDS[product.category], product.image_url));
+    await db.batch(productStatements);
   })().catch((error) => {
     initializedDb = undefined;
     initialization = undefined;
@@ -83,7 +107,6 @@ async function ensureSchema(db) {
   });
   return initialization;
 }
-
 function parseCookies(request) {
   const header = request.headers.get("cookie") || "";
   return Object.fromEntries(header.split(";").map((part) => part.trim().split("=")).filter(([key, value]) => key && value));
@@ -130,22 +153,22 @@ async function listProducts(db, category) {
     throw Object.assign(new Error("존재하지 않는 분류입니다."), { code: "INVALID_CATEGORY", status: 400 });
   }
   const result = category && category !== "전체"
-    ? await db.prepare("SELECT id, name, price, description, category, image_url FROM products WHERE category = ? ORDER BY id").bind(category).all()
-    : await db.prepare("SELECT id, name, price, description, category, image_url FROM products ORDER BY id").all();
+    ? await db.prepare("SELECT p.id, p.name, p.price, p.description, c.name AS category, p.image_url FROM products p JOIN categories c ON c.id = p.category_id WHERE c.name = ? ORDER BY p.id").bind(category).all()
+    : await db.prepare("SELECT p.id, p.name, p.price, p.description, c.name AS category, p.image_url FROM products p JOIN categories c ON c.id = p.category_id ORDER BY p.id").all();
   return result.results;
 }
 
 async function getProduct(db, id) {
-  const product = await db.prepare("SELECT id, name, price, description, category, image_url FROM products WHERE id = ?").bind(id).first();
+  const product = await db.prepare("SELECT p.id, p.name, p.price, p.description, c.name AS category, p.image_url FROM products p JOIN categories c ON c.id = p.category_id WHERE p.id = ?").bind(id).first();
   if (!product) throw Object.assign(new Error("상품을 찾을 수 없습니다."), { code: "PRODUCT_NOT_FOUND", status: 404 });
   return product;
 }
 
 async function getCart(db, guestId) {
   const result = await db.prepare(
-    `SELECT c.product_id AS productId, c.qty, p.name, p.price, p.category, p.image_url AS imageUrl,
+    `SELECT c.product_id AS productId, c.qty, p.name, p.price, cat.name AS category, p.image_url AS imageUrl,
             (c.qty * p.price) AS lineTotal
-     FROM cart_items c JOIN products p ON p.id = c.product_id
+     FROM cart_items c JOIN products p ON p.id = c.product_id JOIN categories cat ON cat.id = p.category_id
      WHERE c.guest_id = ? ORDER BY c.id`
   ).bind(guestId).all();
   return { items: result.results, total: calculateTotal(result.results) };
