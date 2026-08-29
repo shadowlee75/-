@@ -497,7 +497,8 @@ export default {
     securedHeaders.set("content-security-policy", "default-src 'self'; script-src 'self' https://js.tosspayments.com; connect-src 'self' https://api.tosspayments.com; img-src 'self' data:; style-src 'self'; frame-src https://*.tosspayments.com;");
     const securedResponse = new Response(assetResponse.body, { status: assetResponse.status, statusText: assetResponse.statusText, headers: securedHeaders });
     if (securedResponse.status === 404 && request.method === "GET") {
-      return env.ASSETS.fetch(new Request(new URL("/", request.url), request));
+      const fallback = await env.ASSETS.fetch(new Request(new URL("/", request.url), request));
+      return new Response(fallback.body, { status: fallback.status, statusText: fallback.statusText, headers: securedHeaders });
     }
     return securedResponse;
   }
