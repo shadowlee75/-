@@ -105,14 +105,14 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
 .product-card__name {
   display: -webkit-box;
   overflow: hidden;
-  min-height: 1em;
+  min-height: 36px;
   color: #232b35;
   font-size: 12px;
   font-weight: 400;
-  line-height: normal;
+  line-height: 1.5;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  word-break: break-all;
+  word-break: keep-all;
 }
 .product-card__price {
   margin-top: 10px;
@@ -145,8 +145,8 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
 }
 .detail-info { min-width: 0; padding-top: 20px; }
 .detail-category { color: #667380; font-size: 12px; font-weight: 400; }
-.detail-name { margin: 10px 0 0; color: #232b35; font-size: 13px; font-weight: 400; line-height: normal; }
-.detail-description { margin: 10px 0 0; color: #667380; font-size: 12px; font-weight: 400; line-height: normal; }
+.detail-name { margin: 10px 0 0; color: #232b35; font-size: 13px; font-weight: 400; line-height: 1.5; word-break: keep-all; }
+.detail-description { margin: 10px 0 0; color: #667380; font-size: 12px; font-weight: 400; line-height: 1.5; word-break: keep-all; }
 .detail-price { margin-top: 20px; color: #ba2d1b; font-size: 14px; font-weight: 700; }
 .quantity-label { display: block; margin-top: 20px; color: #474f5a; font-size: 16px; font-weight: 400; }
 .quantity-control {
