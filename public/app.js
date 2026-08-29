@@ -1,6 +1,7 @@
 const app = document.querySelector("#app");
 const money = new Intl.NumberFormat("ko-KR");
 let routeRun = 0;
+let paymentWidgets = null;
 
 function formatWon(value) {
   return `${money.format(Number(value))}원`;
@@ -216,6 +217,18 @@ async function renderOrder(route, token) {
     </section>
   `;
   setCartCount(0);
+  if (order.status === "pending") initializePaymentWidget(order);
+}
+
+async function initializePaymentWidget(order) {
+  try {
+    const config = await api("/api/payments/config");
+    if (!config.clientKey || typeof window.TossPayments !== "function") throw new Error("결제 설정을 불러오지 못했습니다.");
+    paymentWidgets = window.TossPayments(config.clientKey).widgets({ customerKey: "user-" + crypto.randomUUID() });
+    await paymentWidgets.setAmount({ currency: "KRW", value: Number(order.total) });
+    await paymentWidgets.renderPaymentMethods({ selector: "#payment-methods" });
+    await paymentWidgets.renderAgreement({ selector: "#payment-agreement" });
+  } catch (e) { feedback(e.message || "결제 화면을 불러오지 못했습니다.", true); }
 }
 
 async function renderPaymentResult(route) {
@@ -373,13 +386,8 @@ async function payOrder(actionTarget) {
   try {
     const config = await api("/api/payments/config");
     if (!config.clientKey || typeof window.TossPayments !== "function") throw new Error("결제 설정을 불러오지 못했습니다.");
-    const toss = window.TossPayments(config.clientKey);
-    const widgets = toss.widgets({ customerKey: "user-" + crypto.randomUUID() });
-    const amount = { currency: "KRW", value: Number(actionTarget.dataset.amount) };
-    await widgets.setAmount(amount);
-    await widgets.renderPaymentMethods({ selector: "#payment-methods" });
-    await widgets.renderAgreement({ selector: "#payment-agreement" });
-    await widgets.requestPayment({ orderId: actionTarget.dataset.orderId, orderName: "쇼핑몰 주문", successUrl: location.origin + "/payment/success", failUrl: location.origin + "/payment/fail" });
+    if (!paymentWidgets) throw new Error("결제 화면을 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+    await paymentWidgets.requestPayment({ orderId: actionTarget.dataset.orderId, orderName: "쇼핑몰 주문", successUrl: location.origin + "/payment/success", failUrl: location.origin + "/payment/fail" });
   } catch (e) { feedback(e.message || "결제창을 열 수 없습니다.", true); }
 }
 
