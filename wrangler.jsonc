@@ -11,7 +11,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "shop-classroom-db"
+      "database_name": "shop-classroom-db",
+      "database_id": "87160278-151a-4a86-9283-d35f4ff816fa"
     }
   ]
 }
