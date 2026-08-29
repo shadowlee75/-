@@ -83,7 +83,9 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
   background: transparent;
   font-size: 12px;
   font-weight: 400;
+  transition: color .18s ease, background-color .18s ease;
 }
+.filter-button:hover { color: #ffffff; background: #4269f6; }
 .filter-button.is-active { color: #4269f6; font-weight: 700; }
 .product-grid {
   display: grid;
