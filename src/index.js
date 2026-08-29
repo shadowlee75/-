@@ -423,12 +423,10 @@ async function handleApi(request, env) {
     }
     if (request.method === "POST" && segments[0] === "products" && segments[1] && segments[2] === "english") {
       const product = await getProduct(env.DB, Number(segments[1]));
-      if (!env.GEMINI_API_KEY) throw Object.assign(new Error("AI 기능이 준비되지 않았습니다."), { code: "AI_UNAVAILABLE", status: 503 });
+      if (!env.AI) throw Object.assign(new Error("AI 기능이 준비되지 않았습니다."), { code: "AI_UNAVAILABLE", status: 503 });
       const prompt = `Return ONLY a plain English product introduction, no title, notes, translation labels, or commentary. Use no more than three short sentences. Use only the product name and description below; never add origin, ingredients, certifications, size, capacity, or other facts.\nName: ${product.name}\nDescription: ${product.description}`;
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 80 } }) });
-      if (!response.ok) throw Object.assign(new Error("AI 소개를 불러오지 못했습니다."), { code: "AI_REQUEST_FAILED", status: 502 });
-      const result = await response.json();
-      let introduction = String(result?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+      const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { prompt, max_tokens: 80, temperature: 0.2 });
+      let introduction = String(result?.response || result || "").trim();
       introduction = introduction.replace(/^(translation|name|description|here is|note)[:：].*$/gim, "").replace(/\n{2,}/g, " ").trim();
       const sentences = introduction.match(/[^.!?]+[.!?]+/g);
       if (sentences) introduction = sentences.filter((sentence) => /[A-Za-z]/.test(sentence)).slice(0, 3).join(" ").trim();
