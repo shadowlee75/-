@@ -43,7 +43,9 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
   font-size: 12px;
   font-weight: 400;
   white-space: nowrap;
+  transition: background-color .18s ease, color .18s ease, transform .18s ease;
 }
+.outline-button:hover { color: #ffffff; background: #4269f6; transform: translateY(-2px); }
 .outline-button--small { min-height: 33px; }
 .cart-count { margin-left: 4px; }
 
@@ -189,7 +191,9 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
   background: #4269f6;
   font-size: 16px;
   font-weight: 700;
+  transition: filter .18s ease, transform .18s ease;
 }
+.primary-button:hover { filter: brightness(1.08); transform: translateY(-2px); }
 .primary-button:disabled { color: #acb5bf; background: #f2f4f6; }
 .feedback { min-height: 1em; margin: 10px 0 0; color: #667380; font-size: 12px; }
 .feedback.is-error { color: #ba2d1b; }
