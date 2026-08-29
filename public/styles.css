@@ -193,6 +193,7 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
 .primary-button:disabled { color: #acb5bf; background: #f2f4f6; }
 .feedback { min-height: 1em; margin: 10px 0 0; color: #667380; font-size: 12px; }
 .feedback.is-error { color: #ba2d1b; }
+.ai-introduction { display: -webkit-box; overflow: hidden; min-height: 36px; margin: 10px 0 0; color: #474f5a; font-size: 16px; font-weight: 400; line-height: 1.5; word-break: keep-all; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 
 .cart-layout {
   display: grid;
