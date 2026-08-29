@@ -429,7 +429,7 @@ async function handleApi(request, env) {
       let introduction = String(result?.response || result || "").trim();
       introduction = introduction.replace(/^(translation|name|description|here is|note)[:：].*$/gim, "").replace(/\n{2,}/g, " ").trim();
       const sentences = introduction.match(/[^.!?]+[.!?]+/g);
-      if (sentences) introduction = sentences.slice(0, 3).join(" ").trim();
+      if (sentences) introduction = sentences.filter((sentence) => /[A-Za-z]/.test(sentence)).slice(0, 3).join(" ").trim();
       return json({ introduction }, 200, headers);
     }
 
