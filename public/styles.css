@@ -74,12 +74,12 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
   width: 900px;
   height: 33px;
   align-items: stretch;
-  background: #fafafa;
+  background: #f0f0f0;
 }
 .filter-button {
   padding: 0 20px;
   border: 0;
-  color: #667380;
+  color: #4269f6;
   background: transparent;
   font-size: 12px;
   font-weight: 400;
