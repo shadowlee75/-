@@ -425,7 +425,7 @@ async function handleApi(request, env) {
       const product = await getProduct(env.DB, Number(segments[1]));
       if (!env.AI) throw Object.assign(new Error("AI 기능이 준비되지 않았습니다."), { code: "AI_UNAVAILABLE", status: 503 });
       const prompt = `Write an understated English product introduction in no more than three sentences using only this name and description. Do not add origin, ingredients, certifications, or any facts not provided. Name: ${product.name}\nDescription: ${product.description}`;
-      const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", { prompt });
+      const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { prompt });
       return json({ introduction: String(result?.response || result || "").trim() }, 200, headers);
     }
 
