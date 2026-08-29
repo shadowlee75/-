@@ -373,7 +373,8 @@ async function payOrder(actionTarget) {
     const config = await api("/api/payments/config");
     if (!config.clientKey || typeof window.TossPayments !== "function") throw new Error("결제 설정을 불러오지 못했습니다.");
     const toss = window.TossPayments(config.clientKey);
-    await toss.requestPayment({ method: "CARD", amount: { currency: "KRW", value: Number(actionTarget.dataset.amount) }, orderId: actionTarget.dataset.orderId, orderName: "쇼핑몰 주문", successUrl: location.origin + "/payment/success", failUrl: location.origin + "/payment/fail" });
+    const payment = toss.payment({ customerKey: "user-" + crypto.randomUUID() });
+    await payment.requestPayment({ method: "CARD", amount: { currency: "KRW", value: Number(actionTarget.dataset.amount) }, orderId: actionTarget.dataset.orderId, orderName: "쇼핑몰 주문", successUrl: location.origin + "/payment/success", failUrl: location.origin + "/payment/fail" });
   } catch (e) { feedback(e.message || "결제창을 열 수 없습니다.", true); }
 }
 
