@@ -424,9 +424,13 @@ async function handleApi(request, env) {
     if (request.method === "POST" && segments[0] === "products" && segments[1] && segments[2] === "english") {
       const product = await getProduct(env.DB, Number(segments[1]));
       if (!env.AI) throw Object.assign(new Error("AI 기능이 준비되지 않았습니다."), { code: "AI_UNAVAILABLE", status: 503 });
-      const prompt = `Write an understated English product introduction in no more than three sentences using only this name and description. Do not add origin, ingredients, certifications, or any facts not provided. Name: ${product.name}\nDescription: ${product.description}`;
-      const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { prompt });
-      return json({ introduction: String(result?.response || result || "").trim() }, 200, headers);
+      const prompt = `Return ONLY a plain English product introduction, no title, notes, translation labels, or commentary. Use no more than three short sentences. Use only the product name and description below; never add origin, ingredients, certifications, size, capacity, or other facts.\nName: ${product.name}\nDescription: ${product.description}`;
+      const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", { prompt, max_tokens: 80, temperature: 0.2 });
+      let introduction = String(result?.response || result || "").trim();
+      introduction = introduction.replace(/^(translation|name|description|here is|note)[:：].*$/gim, "").replace(/\n{2,}/g, " ").trim();
+      const sentences = introduction.match(/[^.!?]+[.!?]+/g);
+      if (sentences) introduction = sentences.slice(0, 3).join(" ").trim();
+      return json({ introduction }, 200, headers);
     }
 
     const user = await requireUser(request, env.DB);
