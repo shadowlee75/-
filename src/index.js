@@ -170,10 +170,13 @@ function errorResponse(code, message, status = 400, headers) {
 
 async function readJson(request) {
   try {
+    const length = Number(request.headers.get("content-length") || 0);
+    if (length > 1024 * 1024) throw Object.assign(new Error("요청 본문이 너무 큽니다."), { code: "PAYLOAD_TOO_LARGE", status: 413 });
     const body = await request.json();
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error();
     return body;
-  } catch {
+  } catch (error) {
+    if (error?.code) throw error;
     throw Object.assign(new Error("JSON 요청 본문이 올바르지 않습니다."), { code: "INVALID_JSON", status: 400 });
   }
 }
@@ -309,7 +312,7 @@ async function confirmPayment(db, userId, body, secretKey) {
 }
 
 function validatePassword(value) {
-  if (typeof value !== "string" || value.length < 8) {
+  if (typeof value !== "string" || value.length < 8 || value.length > 128) {
     throw Object.assign(new Error("비밀번호는 8자 이상이어야 합니다."), { code: "INVALID_PASSWORD", status: 400 });
   }
   return value;
@@ -488,9 +491,14 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) return handleApi(request, env);
     const assetResponse = await env.ASSETS.fetch(request);
-    if (assetResponse.status === 404 && request.method === "GET") {
+    const securedHeaders = new Headers(assetResponse.headers);
+    securedHeaders.set("x-content-type-options", "nosniff");
+    securedHeaders.set("referrer-policy", "strict-origin-when-cross-origin");
+    securedHeaders.set("content-security-policy", "default-src 'self'; script-src 'self' https://js.tosspayments.com; connect-src 'self' https://api.tosspayments.com; img-src 'self' data:; style-src 'self'; frame-src https://*.tosspayments.com;");
+    const securedResponse = new Response(assetResponse.body, { status: assetResponse.status, statusText: assetResponse.statusText, headers: securedHeaders });
+    if (securedResponse.status === 404 && request.method === "GET") {
       return env.ASSETS.fetch(new Request(new URL("/", request.url), request));
     }
-    return assetResponse;
+    return securedResponse;
   }
 };
