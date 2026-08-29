@@ -421,6 +421,13 @@ async function handleApi(request, env) {
       if (!Number.isInteger(id)) return errorResponse("INVALID_PRODUCT_ID", "상품 번호가 올바르지 않습니다.", 400, headers);
       return json(await getProduct(env.DB, id), 200, headers);
     }
+    if (request.method === "POST" && segments[0] === "products" && segments[1] && segments[2] === "english") {
+      const product = await getProduct(env.DB, Number(segments[1]));
+      if (!env.AI) throw Object.assign(new Error("AI 기능이 준비되지 않았습니다."), { code: "AI_UNAVAILABLE", status: 503 });
+      const prompt = `Write an understated English product introduction in no more than three sentences using only this name and description. Do not add origin, ingredients, certifications, or any facts not provided. Name: ${product.name}\nDescription: ${product.description}`;
+      const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", { prompt, max_tokens: 120 });
+      return json({ introduction: String(result?.response || result || "").trim() }, 200, headers);
+    }
 
     const user = await requireUser(request, env.DB);
     if (request.method === "POST" && segments[0] === "payments" && segments[1] === "confirm") return json(await confirmPayment(env.DB, user.id, await readJson(request), env.TOSS_SECRET_KEY), 200, headers);

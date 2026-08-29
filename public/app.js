@@ -125,6 +125,8 @@ async function renderProduct(route, token) {
           <p class="detail-category">${escapeHtml(product.category)}</p>
           <h1 class="detail-name">${escapeHtml(product.name)}</h1>
           <p class="detail-description">${escapeHtml(product.description)}</p>
+          <button type="button" class="outline-button" data-action="english-intro" data-product-id="${product.id}">English</button>
+          <p class="ai-introduction" data-ai-introduction aria-live="polite"></p>
           <p class="detail-price">${formatWon(product.price)}</p>
           <span class="quantity-label">수량</span>
           ${quantityMarkup(1, product.name)}
@@ -323,6 +325,11 @@ function feedback(message, isError = false) {
 
 async function handleAction(actionTarget) {
   const action = actionTarget.dataset.action;
+  if (action === "english-intro") {
+    const target = document.querySelector("[data-ai-introduction]"); actionTarget.disabled = true; target.textContent = "Loading…";
+    try { const result = await api(`/api/products/${actionTarget.dataset.productId}/english`, { method: "POST" }); target.textContent = result.introduction; } catch { target.textContent = ""; } finally { actionTarget.disabled = false; }
+    return;
+  }
   if (action === "pay-order") { await payOrder(actionTarget); return; }
   if (action === "add-to-cart") {
     const quantity = Number(actionTarget.closest(".detail-info").querySelector("output")?.textContent || 1);
