@@ -205,6 +205,7 @@ async function renderOrder(route, token) {
       <p class="order-number">주문번호 ${escapeHtml(order.orderNo)}</p>
       <p class="order-status">결제 상태: ${order.status === "paid" ? "결제 완료" : "결제 대기"}</p>
       ${order.status === "pending" ? `<button type="button" class="primary-button" data-action="pay-order" data-order-id="${escapeHtml(order.orderNo)}" data-amount="${order.total}">결제하기</button>` : ""}
+      ${order.status === "pending" ? '<div id="payment-methods"></div><div id="payment-agreement"></div>' : ""}
       <p class="feedback" data-feedback aria-live="polite"></p>
       <div class="order-items">${order.items.map(orderItemMarkup).join("")}</div>
       <p class="order-total"><span>합계</span><span>${formatWon(order.total)}</span></p>
@@ -373,8 +374,12 @@ async function payOrder(actionTarget) {
     const config = await api("/api/payments/config");
     if (!config.clientKey || typeof window.TossPayments !== "function") throw new Error("결제 설정을 불러오지 못했습니다.");
     const toss = window.TossPayments(config.clientKey);
-    const payment = toss.payment({ customerKey: "user-" + crypto.randomUUID() });
-    await payment.requestPayment({ method: "CARD", amount: { currency: "KRW", value: Number(actionTarget.dataset.amount) }, orderId: actionTarget.dataset.orderId, orderName: "쇼핑몰 주문", successUrl: location.origin + "/payment/success", failUrl: location.origin + "/payment/fail" });
+    const widgets = toss.widgets({ customerKey: "user-" + crypto.randomUUID() });
+    const amount = { currency: "KRW", value: Number(actionTarget.dataset.amount) };
+    await widgets.setAmount(amount);
+    await widgets.renderPaymentMethods({ selector: "#payment-methods" });
+    await widgets.renderAgreement({ selector: "#payment-agreement" });
+    await widgets.requestPayment({ orderId: actionTarget.dataset.orderId, orderName: "쇼핑몰 주문", successUrl: location.origin + "/payment/success", failUrl: location.origin + "/payment/fail" });
   } catch (e) { feedback(e.message || "결제창을 열 수 없습니다.", true); }
 }
 
