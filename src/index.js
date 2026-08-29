@@ -114,6 +114,8 @@ async function ensureSchema(db) {
     if (!orderColumns.results.some((column) => column.name === "user_id")) {
       await db.prepare("ALTER TABLE orders ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE").run();
     }
+    if (!orderColumns.results.some((column) => column.name === "payment_key")) await db.prepare("ALTER TABLE orders ADD COLUMN payment_key TEXT").run();
+    if (!orderColumns.results.some((column) => column.name === "paid_at")) await db.prepare("ALTER TABLE orders ADD COLUMN paid_at TEXT").run();
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)").run();
     await db.prepare("CREATE INDEX IF NOT EXISTS idx_cart_items_user_id ON cart_items(user_id)").run();
     await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_cart_items_user_product ON cart_items(user_id, product_id)").run();
@@ -263,7 +265,7 @@ async function createOrder(db, userId) {
 
 async function getOrder(db, userId, orderNo) {
   const order = await db.prepare(
-    "SELECT id AS orderNo, total, status, created_at AS createdAt FROM orders WHERE id = ? AND user_id = ?"
+    "SELECT id AS orderNo, total, status, created_at AS createdAt, paid_at AS paidAt FROM orders WHERE id = ? AND user_id = ?"
   ).bind(orderNo, userId).first();
   if (!order) throw Object.assign(new Error("주문을 찾을 수 없습니다."), { code: "ORDER_NOT_FOUND", status: 404 });
   const items = await db.prepare(
@@ -286,6 +288,24 @@ function normalizeEmail(value) {
     throw Object.assign(new Error("올바른 이메일 주소를 입력해 주세요."), { code: "INVALID_EMAIL", status: 400 });
   }
   return email;
+}
+
+async function confirmPayment(db, userId, body, secretKey) {
+  const paymentKey = typeof body.paymentKey === "string" ? body.paymentKey : "";
+  const orderId = typeof body.orderId === "string" ? body.orderId : "";
+  const amount = Number(body.amount);
+  if (!paymentKey || !orderId || !Number.isInteger(amount)) throw Object.assign(new Error("결제 정보가 올바르지 않습니다."), { code: "INVALID_PAYMENT", status: 400 });
+  const order = await db.prepare("SELECT id, total, status FROM orders WHERE id = ? AND user_id = ?").bind(orderId, userId).first();
+  if (!order) throw Object.assign(new Error("주문을 찾을 수 없습니다."), { code: "ORDER_NOT_FOUND", status: 404 });
+  if (order.status === "paid") return getOrder(db, userId, orderId);
+  if (order.total !== amount) throw Object.assign(new Error("결제 금액이 주문 금액과 다릅니다."), { code: "AMOUNT_MISMATCH", status: 400 });
+  if (!secretKey) throw Object.assign(new Error("결제 서버 설정이 필요합니다."), { code: "PAYMENT_NOT_CONFIGURED", status: 503 });
+  const auth = btoa(secretKey + ":");
+  const response = await fetch("https://api.tosspayments.com/v1/payments/confirm", { method: "POST", headers: { authorization: "Basic " + auth, "content-type": "application/json" }, body: JSON.stringify({ paymentKey, orderId, amount }) });
+  if (!response.ok) throw Object.assign(new Error("결제 승인이 완료되지 않았습니다."), { code: "PAYMENT_CONFIRM_FAILED", status: 400 });
+  const paidAt = new Date().toISOString();
+  await db.prepare("UPDATE orders SET status = 'paid', payment_key = ?, paid_at = ? WHERE id = ? AND user_id = ? AND status = 'pending'").bind(paymentKey, paidAt, orderId, userId).run();
+  return getOrder(db, userId, orderId);
 }
 
 function validatePassword(value) {
@@ -395,6 +415,7 @@ async function handleApi(request, env) {
     if (request.method === "GET" && segments[0] === "products" && segments.length === 1) {
       return json({ products: await listProducts(env.DB, url.searchParams.get("category") || "") }, 200, headers);
     }
+    if (request.method === "GET" && segments[0] === "payments" && segments[1] === "config") return json({ clientKey: env.TOSS_CLIENT_KEY || "" }, 200, headers);
     if (request.method === "GET" && segments[0] === "products" && segments.length === 2) {
       const id = Number(segments[1]);
       if (!Number.isInteger(id)) return errorResponse("INVALID_PRODUCT_ID", "상품 번호가 올바르지 않습니다.", 400, headers);
@@ -402,6 +423,7 @@ async function handleApi(request, env) {
     }
 
     const user = await requireUser(request, env.DB);
+    if (request.method === "POST" && segments[0] === "payments" && segments[1] === "confirm") return json(await confirmPayment(env.DB, user.id, await readJson(request), env.TOSS_SECRET_KEY), 200, headers);
     if (request.method === "GET" && segments[0] === "me" && segments.length === 1) {
       return json(await myPage(env.DB, user), 200, headers);
     }

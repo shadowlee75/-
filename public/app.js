@@ -26,6 +26,8 @@ function currentRoute() {
   if (pathname === "/login") return { name: "login" };
   if (pathname === "/signup") return { name: "signup" };
   if (pathname === "/mypage") return { name: "mypage" };
+  if (pathname === "/payment/success") return { name: "payment-success" };
+  if (pathname === "/payment/fail") return { name: "payment-fail" };
   if (pathname.startsWith("/product/")) return { name: "product", id: pathname.split("/")[2] };
   if (pathname.startsWith("/order/")) return { name: "order", id: decodeURIComponent(pathname.split("/")[2]) };
   return { name: "home", category: "전체" };
@@ -201,6 +203,8 @@ async function renderOrder(route, token) {
     <section class="content content--order order-complete">
       <h1 class="order-complete__title">주문이 완료되었습니다.</h1>
       <p class="order-number">주문번호 ${escapeHtml(order.orderNo)}</p>
+      <p class="order-status">결제 상태: ${order.status === "paid" ? "결제 완료" : "결제 대기"}</p>
+      ${order.status === "pending" ? `<button type="button" class="primary-button" data-action="pay-order" data-order-id="${escapeHtml(order.orderNo)}" data-amount="${order.total}">결제하기</button>` : ""}
       <div class="order-items">${order.items.map(orderItemMarkup).join("")}</div>
       <p class="order-total"><span>합계</span><span>${formatWon(order.total)}</span></p>
       <div class="order-actions">
@@ -210,6 +214,12 @@ async function renderOrder(route, token) {
     </section>
   `;
   setCartCount(0);
+}
+
+async function renderPaymentResult(route) {
+  const params = new URLSearchParams(window.location.search);
+  if (route.name === "payment-fail") { renderError(params.get("message") || "결제가 취소되었습니다."); return; }
+  try { const order = await api("/api/payments/confirm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ paymentKey: params.get("paymentKey"), orderId: params.get("orderId"), amount: Number(params.get("amount")) }) }); navigate("/order/" + encodeURIComponent(order.orderNo)); } catch (e) { renderError(e.message); }
 }
 
 
@@ -282,6 +292,7 @@ async function renderRoute() {
     if (route.name === "order") await renderOrder(route, token);
     if (route.name === "login" || route.name === "signup") await renderAuth(route, token);
     if (route.name === "mypage") await renderMyPage(token);
+    if (route.name === "payment-success" || route.name === "payment-fail") await renderPaymentResult(route);
   } catch (error) {
     if (error.status === 401 && ["cart", "order", "mypage"].includes(route.name)) { navigate("/login"); return; }
     if (token === routeRun) renderError(error.message);
@@ -297,6 +308,7 @@ function feedback(message, isError = false) {
 
 async function handleAction(actionTarget) {
   const action = actionTarget.dataset.action;
+  if (action === "pay-order") { await payOrder(actionTarget); return; }
   if (action === "add-to-cart") {
     const quantity = Number(actionTarget.closest(".detail-info").querySelector("output")?.textContent || 1);
     try {
@@ -354,6 +366,10 @@ async function handleAction(actionTarget) {
   }
 }
 
+
+async function payOrder(actionTarget) {
+  try { const config = await api("/api/payments/config"); if (!config.clientKey || !window.TossPayments) throw new Error("결제 설정이 준비되지 않았습니다."); const toss = TossPayments(config.clientKey); await toss.requestPayment({ method: "CARD", amount: { currency: "KRW", value: Number(actionTarget.dataset.amount) }, orderId: actionTarget.dataset.orderId, orderName: "쇼핑몰 주문", successUrl: location.origin + "/payment/success", failUrl: location.origin + "/payment/fail" }); } catch (e) { feedback(e.message, true); }
+}
 
 async function handleAuthSubmit(form) {
   const mode = form.dataset.authForm;
