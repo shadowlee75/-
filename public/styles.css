@@ -79,13 +79,11 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
 .filter-button {
   padding: 0 20px;
   border: 0;
-  color: #4269f6;
+  color: #667380;
   background: transparent;
   font-size: 12px;
   font-weight: 400;
-  transition: color .18s ease, background-color .18s ease;
 }
-.filter-button:hover { color: #4269f6; background: #f0f0f0; }
 .filter-button.is-active { color: #4269f6; font-weight: 700; }
 .product-grid {
   display: grid;
