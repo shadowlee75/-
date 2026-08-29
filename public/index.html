@@ -12,7 +12,13 @@
     <header class="site-header">
       <div class="site-header__inner">
         <a class="text-link text-link--strong" href="/" data-link>상품</a>
-        <a class="outline-button outline-button--small" href="/cart" data-link>장바구니 <span class="cart-count" data-cart-count>0</span></a>
+        <nav class="site-header__nav" aria-label="회원 메뉴">
+          <a class="text-link" href="/login" data-link data-auth-login>로그인</a>
+          <a class="text-link" href="/signup" data-link data-auth-signup>회원가입</a>
+          <a class="text-link" href="/mypage" data-link data-auth-mypage>마이페이지</a>
+          <button class="text-link header-logout" type="button" data-auth-logout>로그아웃</button>
+          <a class="outline-button outline-button--small" href="/cart" data-link>장바구니 <span class="cart-count" data-cart-count>0</span></a>
+        </nav>
       </div>
     </header>
     <main id="app" class="page-shell" aria-live="polite"></main>

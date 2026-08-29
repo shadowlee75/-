@@ -258,3 +258,20 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
 
 .loading { color: #667380; font-size: 16px; }
 .error-panel { padding: 25px; border: 1px solid #e0e3e7; border-radius: 4px; color: #ba2d1b; background: #ffffff; font-size: 16px; }
+
+
+.site-header__nav { display: flex; align-items: center; gap: 20px; }
+.header-logout { padding: 0; border: 0; background: transparent; }
+.auth-panel { width: 548px; margin: 0 auto; padding: 25px; border: 1px solid #e0e3e7; border-radius: 4px; background: #ffffff; }
+.auth-panel h1 { margin: 0 0 20px; color: #232b35; font-size: 20px; font-weight: 700; }
+.auth-form { display: grid; gap: 12px; }
+.auth-form label { display: grid; gap: 6px; color: #474f5a; font-size: 16px; font-weight: 400; }
+.auth-form input { height: 40px; padding: 0 12px; border: 1px solid #acb5bf; border-radius: 4px; color: #232b35; background: #ffffff; font-size: 16px; }
+.auth-form .primary-button { margin-top: 8px; }
+.auth-message { min-height: 1em; margin: 0; color: #ba2d1b; font-size: 12px; }
+.auth-panel__link { margin-top: 20px; color: #4269f6; font-size: 16px; }
+.profile-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e0e3e7; color: #232b35; font-size: 16px; }
+.profile-orders { margin-top: 20px; }
+.profile-orders h2 { margin: 0 0 12px; color: #232b35; font-size: 18px; font-weight: 700; }
+.profile-order { padding: 12px 0; border-top: 1px solid #e0e3e7; color: #232b35; font-size: 16px; }
+.profile-order a { color: #4269f6; }

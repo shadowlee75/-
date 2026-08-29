@@ -15,7 +15,7 @@ function escapeHtml(value) {
 async function api(path, options) {
   const response = await fetch(path, { headers: { accept: "application/json" }, ...options });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error?.message || "요청을 처리하지 못했습니다.");
+  if (!response.ok) { const error = new Error(body.error?.message || "요청을 처리하지 못했습니다."); error.status = response.status; error.code = body.error?.code; throw error; }
   return body;
 }
 
@@ -23,6 +23,9 @@ function currentRoute() {
   const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
   if (pathname === "/") return { name: "home", category: new URLSearchParams(window.location.search).get("category") || "전체" };
   if (pathname === "/cart") return { name: "cart" };
+  if (pathname === "/login") return { name: "login" };
+  if (pathname === "/signup") return { name: "signup" };
+  if (pathname === "/mypage") return { name: "mypage" };
   if (pathname.startsWith("/product/")) return { name: "product", id: pathname.split("/")[2] };
   if (pathname.startsWith("/order/")) return { name: "order", id: decodeURIComponent(pathname.split("/")[2]) };
   return { name: "home", category: "전체" };
@@ -209,16 +212,78 @@ async function renderOrder(route, token) {
   setCartCount(0);
 }
 
+
+function authFormMarkup(mode) {
+  const signup = mode === "signup";
+  const fields = signup ? '<label>이름<input name="name" type="text" autocomplete="name" required maxlength="80"></label>' : "";
+  return '<section class="content content--home"><div class="auth-panel"><h1>' +
+    (signup ? "회원가입" : "로그인") +
+    '</h1><form class="auth-form" data-auth-form="' + mode + '">' +
+    fields +
+    '<label>이메일<input name="email" type="email" autocomplete="email" required></label>' +
+    '<label>비밀번호<input name="password" type="password" autocomplete="' + (signup ? "new-password" : "current-password") + '" minlength="8" required></label>' +
+    '<p class="auth-message" data-auth-message></p><button class="primary-button" type="submit">' +
+    (signup ? "가입하기" : "로그인") +
+    '</button></form><a class="auth-panel__link" href="/' + (signup ? "login" : "signup") + '" data-link>' +
+    (signup ? "로그인으로 이동" : "회원가입으로 이동") + '</a></div></section>';
+}
+
+async function renderAuth(route, token) {
+  document.title = route.name === "signup" ? "회원가입" : "로그인";
+  if (token !== routeRun) return;
+  app.innerHTML = authFormMarkup(route.name);
+}
+
+async function renderMyPage(token) {
+  const result = await api("/api/me");
+  if (token !== routeRun) return;
+  document.title = "마이페이지";
+  const orders = result.orders.length ? result.orders.map((order) =>
+    '<div class="profile-order"><a href="/order/' + encodeURIComponent(order.orderNo) + '" data-link>' +
+    escapeHtml(order.orderNo) + '</a><span>' + formatWon(order.total) + " · " +
+    (order.status === "paid" ? "결제 완료" : "결제 대기") + "</span></div>"
+  ).join("") : '<p class="loading">주문 내역이 없습니다.</p>';
+  app.innerHTML = '<section class="content content--home"><div class="auth-panel"><h1>마이페이지</h1>' +
+    '<div class="profile-row"><span>이름</span><strong>' + escapeHtml(result.user.name) + '</strong></div>' +
+    '<div class="profile-row"><span>이메일</span><strong>' + escapeHtml(result.user.email) + '</strong></div>' +
+    '<div class="profile-orders"><h2>내 주문</h2>' + orders + '</div></div></section>';
+}
+
+async function refreshAuthMenu() {
+  const login = document.querySelector("[data-auth-login]");
+  const signup = document.querySelector("[data-auth-signup]");
+  const mypage = document.querySelector("[data-auth-mypage]");
+  const logout = document.querySelector("[data-auth-logout]");
+  if (!login || !signup || !mypage || !logout) return;
+  try {
+    const result = await api("/api/me");
+    login.hidden = true;
+    signup.hidden = true;
+    mypage.hidden = false;
+    logout.hidden = false;
+    mypage.textContent = result.user.name + "님";
+  } catch {
+    login.hidden = false;
+    signup.hidden = false;
+    mypage.hidden = true;
+    logout.hidden = true;
+  }
+}
+
 async function renderRoute() {
   const token = ++routeRun;
   const route = currentRoute();
   renderLoading();
+  refreshAuthMenu();
   try {
     if (route.name === "home") await renderHome(route, token);
     if (route.name === "product") await renderProduct(route, token);
     if (route.name === "cart") await renderCart(token);
     if (route.name === "order") await renderOrder(route, token);
+    if (route.name === "login" || route.name === "signup") await renderAuth(route, token);
+    if (route.name === "mypage") await renderMyPage(token);
   } catch (error) {
+    if (error.status === 401 && ["cart", "order", "mypage"].includes(route.name)) { navigate("/login"); return; }
     if (token === routeRun) renderError(error.message);
   }
 }
@@ -289,7 +354,30 @@ async function handleAction(actionTarget) {
   }
 }
 
+
+async function handleAuthSubmit(form) {
+  const mode = form.dataset.authForm;
+  const message = form.querySelector("[data-auth-message]");
+  const body = Object.fromEntries(new FormData(form).entries());
+  try {
+    await api("/api/auth/" + mode, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    navigate(mode === "signup" ? "/mypage" : "/");
+  } catch (error) {
+    message.textContent = error.message;
+  }
+}
+
+async function handleLogout() {
+  try {
+    await api("/api/auth/logout", { method: "POST" });
+  } finally {
+    navigate("/login");
+  }
+}
+
+document.addEventListener("submit", (event) => { const form = event.target.closest("[data-auth-form]"); if (form) { event.preventDefault(); handleAuthSubmit(form); } });
 document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-auth-logout]")) { handleLogout(); return; }
   const link = event.target.closest("a[data-link]");
   if (link) {
     event.preventDefault();
