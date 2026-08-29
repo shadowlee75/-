@@ -1,7 +1,7 @@
 :root {
   font-family: -apple-system, "Malgun Gothic", "맑은 고딕", sans-serif;
   color: #232b35;
-  background: #f0f0f0;
+  background: #fafafa;
   font-synthesis: none;
 }
 
@@ -38,7 +38,7 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
   padding: 0 20px;
   border: 1px solid #4269f6;
   border-radius: 4px;
-  color: #4269f6;
+  color: #667380;
   background: #ffffff;
   font-size: 12px;
   font-weight: 400;
@@ -85,7 +85,7 @@ a:focus-visible, button:focus-visible { outline: 1px solid #4269f6; outline-offs
   font-weight: 400;
   transition: color .18s ease, background-color .18s ease;
 }
-.filter-button:hover { color: #ffffff; background: #4269f6; }
+.filter-button:hover { color: #4269f6; background: #f0f0f0; }
 .filter-button.is-active { color: #4269f6; font-weight: 700; }
 .product-grid {
   display: grid;
